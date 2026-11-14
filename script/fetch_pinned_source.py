@@ -4,6 +4,7 @@ import hashlib
 import json
 import subprocess
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -14,13 +15,20 @@ def fetch(repository, revision, destination, snapshot_only=False):
     destination.mkdir(parents=True, exist_ok=True)
     subprocess.run(['git', 'init', '-q', str(destination)], check=True)
     fetched = False
-    if not snapshot_only:
+    # A runner's DNS sometimes fails for a moment ("Could not resolve host"): a few tries before giving up.
+    for attempt in range(0 if snapshot_only else 4):
+        if attempt:
+            time.sleep(15 * attempt)
         try:
             result = subprocess.run(['git', '-C', str(destination), 'fetch', '--depth=1', repository, revision], timeout=180)
             fetched = result.returncode == 0
         except subprocess.TimeoutExpired:
             fetched = False
+        if fetched:
+            break
     if not fetched:
+        if repository not in lock:
+            raise RuntimeError('Could not fetch %s and it has no verified fallback snapshot' % repository)
         entry = lock[repository]
         assert entry['revision'] == revision, 'No verified source snapshot for this revision'
         if 'url' not in entry or 'sha256' not in entry:
