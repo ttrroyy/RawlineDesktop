@@ -9744,9 +9744,9 @@
     "semantic_hash": ""
   },
   "src/ui/widget/NewHome.cpp": {
-    "mtime": 1794661057.7081509,
-    "seen": 1794661254.2148182,
-    "ast_hash": "abd4bc6861e8c07c674762b5e7a8c244",
+    "mtime": 1794661297.1279888,
+    "seen": 1794661419.878225,
+    "ast_hash": "547e256e25a6c0d19d8f4d7ead56c705",
     "semantic_hash": ""
   },
   "res/flags/SOURCE.txt": {
@@ -11964,9 +11964,9 @@
     "semantic_hash": ""
   },
   "script/test_ui_regressions.py": {
-    "mtime": 1794661128.5958083,
-    "seen": 1794661254.2138186,
-    "ast_hash": "28601de32a74d2c98351f94dcd270dbb",
+    "mtime": 1794661307.062198,
+    "seen": 1794661419.8766057,
+    "ast_hash": "6991b1ec45a32381300adfaa47049ad9",
     "semantic_hash": ""
   }
 }

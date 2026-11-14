@@ -47,6 +47,13 @@ class InterfaceRegressions(unittest.TestCase):
         body = read("src/ui/widget/NewHome.cpp").split("void MainWindow::syncWindowFrame()", 1)[1].split("\n}\n", 1)[0]
         self.assertIn("dialog->isWindow()", body)
 
+    def test_pastel_selection_matches_the_phone(self):
+        # The phone's selectedShape: plate blended 22% to lilac, 1.5 px lilac edge at alpha 230.
+        text = read("src/ui/widget/NewHome.cpp")
+        self.assertIn("tint == text() ? accent() : tint", text)
+        self.assertIn("p.setPen(QPen(withAlpha(mark, 230), 1.5));", text)
+        self.assertIn("p.setBrush(blend(plate, mark, .22));", text)
+
     def test_tab_close_button_is_drawn_by_the_new_style(self):
         self.assertIn("case PE_IndicatorTabClose:", read("src/ui/widget/NewHome.cpp"))
 

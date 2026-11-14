@@ -650,10 +650,23 @@ void NewStyle::paintGlass(QPainter &p, const QRectF &r0, qreal radius, const QCo
     const qreal corner = std::min({radius, r.height() / 2, r.width() / 2});
     QColor high, low;
     if (pastel()) {
-        // An opaque plum plate; a tinted one leans towards the tint, the chosen row towards lilac with its edge.
+        // As the phone's selectedShape: the plum plate a step towards lilac, solid, with a 1.5 px lilac edge.
+        // The chosen row asks for the text colour, which in Pastel is the lilac accent.
         const QColor plate(42, 36, 62);
-        high = tint.isValid() ? blend(plate, tint, .3) : QColor(46, 39, 68);
-        low = tint.isValid() ? blend(plate, tint, .22) : QColor(40, 34, 60);
+        if (tint.isValid()) {
+            const QColor mark = tint == text() ? accent() : tint;
+            p.save();
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(QPen(withAlpha(mark, 230), 1.5));
+            p.setBrush(blend(plate, mark, .22));
+            const QRectF edge = r0.adjusted(.75, .75, -.75, -.75);
+            const qreal round = std::min({radius, edge.height() / 2, edge.width() / 2});
+            p.drawRoundedRect(edge, round, round);
+            p.restore();
+            return;
+        }
+        high = QColor(46, 39, 68);
+        low = QColor(40, 34, 60);
     } else if (tint.isValid()) { high = withAlpha(tint, day ? 36 : 44); low = withAlpha(tint, day ? 20 : 26); }
     else { high = day ? QColor(255, 255, 255, 205) : QColor(255, 255, 255, 15); low = day ? QColor(248, 248, 250, 160) : QColor(255, 255, 255, 9); }
     QLinearGradient body(0, r0.top(), 0, r0.bottom());
