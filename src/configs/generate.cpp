@@ -3225,7 +3225,11 @@ namespace Configs {
             } else {
                 route["final"] = finalTag;
             }
+#ifdef Q_OS_WIN
+            // Only for the process column of the connections list; sing-box turns it on by itself for process rules.
+            // On Linux and macOS each lookup scans every process's sockets, which kept the core at full CPU.
             if (settings.enable_stats && !route.contains("find_process"))  route["find_process"] = true;
+#endif
             if (!route.contains("default_domain_resolver"))
                 route["default_domain_resolver"] = directDomainResolver();
             if (settings.spmode_vpn && !route.contains("auto_detect_interface")) route["auto_detect_interface"] = true;

@@ -51,6 +51,7 @@
 #include <QStyleFactory>
 #include <QStyleOption>
 #include <QRegularExpression>
+#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
@@ -309,6 +310,18 @@ namespace {
             } else if (event->type() == QEvent::Show && widget->isWindow() &&
                        (widget->inherits("QComboBoxPrivateContainer") || widget->inherits("QTipLabel"))) {
                 NewStyle::roundCorners(widget, true);
+            } else if (auto *view = qobject_cast<QAbstractItemView *>(widget); view && event->type() == QEvent::Show && widget->isWindow()) {
+                // A completer's list: the sheet makes views see-through, which a window of its own cannot be.
+                const auto rgba = [](const QColor &c) { return QStringLiteral("rgba(%1,%2,%3,%4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(c.alpha()); };
+                const QString sheet = QStringLiteral(
+                    "QAbstractItemView { background: %1; color: %2; border: none; padding: 4px; outline: 0; }"
+                    "QAbstractItemView::item { min-height: 24px; padding: 2px 8px; border-radius: 8px; }"
+                    "QAbstractItemView::item:hover { background: %3; }"
+                    "QAbstractItemView::item:selected { background: %4; color: %2; }")
+                    .arg(rgba(NewStyle::solid()), rgba(NewStyle::text()), rgba(NewStyle::overlay(22)), rgba(withAlpha(NewStyle::accent(), NewStyle::pastel() ? 70 : 40)));
+                if (view->styleSheet() != sheet) view->setStyleSheet(sheet);
+                view->setProperty("newPopup", true);
+                NewStyle::roundCorners(widget, true);
             }
             return false;
         }
@@ -400,6 +413,28 @@ namespace {
                 p->restore();
                 return;
             }
+            case PE_IndicatorTabClose: {
+                // A thin cross in the theme's ink, with a soft round light under the pointer, not the stock red square.
+                const qreal side = std::min(option->rect.width(), option->rect.height());
+                QRectF box(0, 0, side, side);
+                box.moveCenter(QRectF(option->rect).center());
+                const bool lit = option->state & (State_Raised | State_Sunken);
+                p->save();
+                p->setRenderHint(QPainter::Antialiasing);
+                if (!(option->state & State_Enabled)) p->setOpacity(.45);
+                if (lit) {
+                    p->setPen(Qt::NoPen);
+                    p->setBrush(NewStyle::overlay(option->state & State_Sunken ? 44 : 24));
+                    p->drawEllipse(box.adjusted(.5, .5, -.5, -.5));
+                }
+                const qreal arm = side * .2;
+                const QPointF c = box.center();
+                p->setPen(QPen(lit ? ink : NewStyle::muted(), 1.4, Qt::SolidLine, Qt::RoundCap));
+                p->drawLine(c + QPointF(-arm, -arm), c + QPointF(arm, arm));
+                p->drawLine(c + QPointF(arm, -arm), c + QPointF(-arm, arm));
+                p->restore();
+                return;
+            }
             default:
                 QProxyStyle::drawPrimitive(element, option, p, widget);
             }
@@ -437,6 +472,7 @@ void NewStyle::setTheme(const QString &theme) {
         for (auto *widget : QApplication::allWidgets()) {
             if (auto *menu = qobject_cast<QMenu *>(widget)) menu->setAttribute(Qt::WA_TranslucentBackground, false);
             if (widget->property("newHand").toBool()) { widget->unsetCursor(); widget->setProperty("newHand", QVariant()); }
+            if (widget->property("newPopup").toBool()) { widget->setStyleSheet(QString()); widget->setProperty("newPopup", QVariant()); }
         }
     }
     const bool entering = !isTheme(g_theme) && isTheme(theme);
@@ -763,6 +799,7 @@ QSize NewTile::sizeHint() const {
     case Chip: return {fm.horizontalAdvance(text()) + 16 + 12 + 30, 48};
     case Tab: return {fm.horizontalAdvance(text()) + 36, 44};
     case Text: return m_subtitle.isEmpty() ? QSize(fm.horizontalAdvance(text()) + 24, 52) : QSize(fm.horizontalAdvance(text()) + 32, 60);
+    case Pill: return {QFontMetrics(NewStyle::font(m_textSize, QFont::Medium)).horizontalAdvance(text()) + 32, 40};
     }
     return {48, 48};
 }
@@ -790,8 +827,13 @@ void NewTile::paintEvent(QPaintEvent *) {
     p.setRenderHint(QPainter::Antialiasing);
     if (!isEnabled()) p.setOpacity(.4);
     const QRectF r = rect();
-    const qreal radius = m_kind == Icon && m_flat ? r.height() / 2 : 20;
-    if (!m_flat) NewStyle::paintGlass(p, r, radius, m_selected ? NewStyle::text() : QColor());
+    const qreal radius = (m_kind == Icon && m_flat) || m_kind == Pill ? r.height() / 2 : 20;
+    if (m_kind == Pill) {
+        // Solid, so whatever lies under the bar never shows through it.
+        p.setPen(QPen(NewStyle::outline(), 1));
+        p.setBrush(NewStyle::solid());
+        p.drawRoundedRect(r.adjusted(.5, .5, -.5, -.5), radius, radius);
+    } else if (!m_flat) NewStyle::paintGlass(p, r, radius, m_selected ? NewStyle::text() : QColor());
     const int lift = (m_hover && isEnabled() ? 12 : 0) + qRound(m_press * 40);
     const bool ring = hasFocus() && g_keyFocus;
     if (lift > 0 || ring) {
@@ -845,6 +887,11 @@ void NewTile::paintEvent(QPaintEvent *) {
         p.drawText(r.adjusted(10, 0, -10, 0), Qt::AlignCenter, p.fontMetrics().elidedText(text(), Qt::ElideRight, int(r.width() - 20)));
         break;
     }
+    case Pill:
+        p.setFont(NewStyle::font(m_textSize, QFont::Medium));
+        p.setPen(ink);
+        p.drawText(r.adjusted(8, 0, -8, 0), Qt::AlignCenter, p.fontMetrics().elidedText(text(), Qt::ElideRight, int(r.width() - 16)));
+        break;
     }
 }
 
@@ -917,6 +964,8 @@ NewOrb::NewOrb(QWidget *parent) : QAbstractButton(parent) {
         if (window()->isMinimized()) return;
         // Full rate in front, a slow wave is enough behind other windows.
         if (!window()->isActiveWindow() && m_clock.elapsed() - m_lastFrame < 120) return;
+        // The resting wave is slow: 30 frames a second are enough, the full rate only while connecting.
+        if (!m_connecting && m_spin < .01 && m_clock.elapsed() - m_lastFrame < 30) return;
         update();
     });
 }
@@ -1146,7 +1195,14 @@ namespace {
             setAttribute(Qt::WA_TranslucentBackground);
             setAttribute(Qt::WA_DeleteOnClose);
         }
-        void showAt(const QPoint &pos) {
+        void showAt(QPoint pos) {
+            // Kept on the screen it opens on, above its anchor when there is no room below.
+            if (const QScreen *screen = QGuiApplication::screenAt(pos)) {
+                const QRect room = screen->availableGeometry();
+                pos.setX(std::clamp(pos.x(), room.left(), std::max(room.left(), room.right() + 1 - width())));
+                pos.setY(std::clamp(pos.y(), room.top(), std::max(room.top(), room.bottom() + 1 - height())));
+            }
+            captureBackdrop(QRect(pos, size()).adjusted(0, 0, 0, 12));
             move(pos + QPoint(0, 10));
             show();
             auto *anim = new QVariantAnimation(this);
@@ -1163,10 +1219,37 @@ namespace {
         void paintEvent(QPaintEvent *) override {
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
+            const QRectF body = QRectF(rect()).adjusted(.5, .5, -.5, -.5);
+            QPainterPath shape;
+            shape.addRoundedRect(body, 28, 28);
+            // Frosted: the window under the sheet, blurred, under a dense veil of the theme's ground.
+            p.save();
+            p.setClipPath(shape);
+            p.fillRect(rect(), NewStyle::background());
+            if (!m_backdrop.isNull()) p.drawPixmap(m_backdropOrigin - mapToGlobal(QPoint()), m_backdrop);
+            p.fillRect(rect(), withAlpha(NewStyle::pastel() ? QColor(30, 26, 44) : NewStyle::light() ? QColor(250, 250, 252) : QColor(12, 12, 14), 200));
+            p.restore();
             p.setPen(QPen(NewStyle::outline(), 1));
-            p.setBrush(NewStyle::light() ? QColor(250, 250, 252) : QColor(12, 12, 14));
-            p.drawRoundedRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5), 28, 28);
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(shape);
         }
+    private:
+        void captureBackdrop(const QRect &global) {
+            QWidget *under = parentWidget() ? parentWidget()->window() : nullptr;
+            if (!under) return;
+            const QPixmap shot = under->grab(QRect(under->mapFromGlobal(global.topLeft()), global.size()));
+            if (shot.isNull()) return;
+            // Two halvings down to a sixteenth and two smooth steps back: a cheap, soft blur.
+            QImage image = shot.toImage();
+            const QSize full = image.size();
+            for (const int k : {4, 16}) image = image.scaled((full / k).expandedTo(QSize(1, 1)), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            for (const int k : {4, 1}) image = image.scaled((full / k).expandedTo(QSize(1, 1)), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            m_backdrop = QPixmap::fromImage(image);
+            m_backdrop.setDevicePixelRatio(shot.devicePixelRatio());
+            m_backdropOrigin = global.topLeft();
+        }
+        QPixmap m_backdrop;
+        QPoint m_backdropOrigin;
     };
 
     QLabel *label(const QString &text, qreal px, bool muted, int weight = QFont::Normal) {
@@ -1179,6 +1262,7 @@ namespace {
 
 NewTitleBar::NewTitleBar(QWidget *parent) : QWidget(parent) {
     setFixedHeight(36);
+    setMouseTracking(true);
     auto *row = new QHBoxLayout(this);
     row->setContentsMargins(2, 4, 0, 0);
     row->setSpacing(2);
@@ -1220,8 +1304,20 @@ bool NewTitleBar::eventFilter(QObject *watched, QEvent *event) {
     return QWidget::eventFilter(watched, event);
 }
 
+bool NewTitleBar::onTopEdge(const QPoint &pos) const {
+    return pos.y() <= 5 && !window()->isMaximized() && !window()->isFullScreen();
+}
+
 void NewTitleBar::mousePressEvent(QMouseEvent *e) {
-    if (e->button() == Qt::LeftButton && window()->windowHandle()) window()->windowHandle()->startSystemMove();
+    if (e->button() != Qt::LeftButton || !window()->windowHandle()) return;
+    if (onTopEdge(e->pos())) window()->windowHandle()->startSystemResize(Qt::TopEdge);
+    else window()->windowHandle()->startSystemMove();
+}
+
+void NewTitleBar::mouseMoveEvent(QMouseEvent *e) {
+    if (onTopEdge(e->pos())) setCursor(Qt::SizeVerCursor);
+    else unsetCursor();
+    QWidget::mouseMoveEvent(e);
 }
 
 void NewTitleBar::mouseDoubleClickEvent(QMouseEvent *e) {
@@ -1586,6 +1682,8 @@ void NewHome::buildBody(QVBoxLayout *body) {
     for (int i = 0; i < titles.size(); ++i) {
         auto *tab = new NewTile(NewTile::Tab);
         tab->setText(titles[i]);
+        // Narrow, the tabs give way and cut their titles short rather than hold the window wide.
+        tab->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         connect(tab, &QAbstractButton::clicked, this, [this, i] { selectTab(i); });
         m_tabs << tab;
         tabs->addWidget(tab);
@@ -1626,6 +1724,7 @@ void NewHome::buildBody(QVBoxLayout *body) {
     names->setContentsMargins(10, 8, 4, 8);
     names->setSpacing(3);
     m_groupName = label({}, 17, false);
+    m_groupName->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_groupDate = label({}, 10, true);
     names->addWidget(m_groupName);
     names->addWidget(m_groupDate);
@@ -1745,6 +1844,7 @@ void NewHome::buildBody(QVBoxLayout *body) {
         auto *button = new NewTile(NewTile::Text);
         button->setText(text);
         button->setFixedHeight(48);
+        button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         QObject::connect(button, &QAbstractButton::clicked, action, &QAction::trigger);
         imports->addWidget(button, 1);
     };
@@ -1755,6 +1855,8 @@ void NewHome::buildBody(QVBoxLayout *body) {
     m_pages->addWidget(servers);
 
     auto *stats = new GlassCard(28, true);
+    // The desktop pages inside keep their classic minimums; they must not stop the window narrowing.
+    stats->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
     m_statsLayout = new QVBoxLayout(stats);
     m_statsLayout->setContentsMargins(10, 10, 10, 10);
     m_pages->addWidget(stats);
@@ -2065,9 +2167,10 @@ void NewHome::showMoreMenu() {
     menu->addSeparator();
     menu->addMenu(ui->menu_preferences);
     menu->addMenu(ui->menu_program);
-    menu->addSeparator();
-    connect(menu->addAction(T("Arrange the window")), &QAction::triggered, this, [this] { setArranging(true); });
-    if (ui->actionCheck_For_Update->isEnabled()) menu->addAction(ui->actionCheck_For_Update);
+    if (ui->actionCheck_For_Update->isEnabled()) {
+        menu->addSeparator();
+        menu->addAction(ui->actionCheck_For_Update);
+    }
     guardReopen(menu, m_more);
     menu->popup(m_more->mapToGlobal(QPoint(0, m_more->height() + 6)));
 }
@@ -2134,13 +2237,13 @@ namespace {
         struct Block { QPointer<QWidget> widget; std::function<void(QPoint)> drop; std::function<void()> twice; };
         struct Button { NewTile *tile; QPointer<QWidget> anchor; int slot = 0; };
         ArrangeOverlay(QWidget *parent, std::function<void()> done, std::function<void()> tutorial) : QWidget(parent) {
-            m_done = new NewTile(NewTile::Chip, this);
+            m_done = new NewTile(NewTile::Pill, this);
             m_done->setText(QCoreApplication::translate("NewHome", "Done"));
-            m_done->setFixedSize(120, 40);
+            m_done->setFixedSize(std::max(120, m_done->sizeHint().width()), 40);
             connect(m_done, &QAbstractButton::clicked, this, std::move(done));
-            m_tutorial = new NewTile(NewTile::Chip, this);
+            m_tutorial = new NewTile(NewTile::Pill, this);
             m_tutorial->setText(QCoreApplication::translate("NewHome", "Tutorial"));
-            m_tutorial->setFixedSize(120, 40);
+            m_tutorial->setFixedSize(std::max(120, m_tutorial->sizeHint().width()), 40);
             connect(m_tutorial, &QAbstractButton::clicked, this, std::move(tutorial));
             auto *timer = new QTimer(this);
             connect(timer, &QTimer::timeout, this, [this] { m_phase = (m_phase + 1) % 32; place(); update(); });
@@ -2152,7 +2255,7 @@ namespace {
         void addBlock(QWidget *widget, std::function<void(QPoint)> drop, std::function<void()> twice = {}) { m_blocks << Block{widget, std::move(drop), std::move(twice)}; }
         // A round button in [anchor]'s top right corner, [slot] buttons to the left of it.
         void addButton(QWidget *anchor, const QString &glyph, const QString &tip, std::function<void()> action, int slot = 0) {
-            auto *tile = new NewTile(NewTile::Chip, this);
+            auto *tile = new NewTile(NewTile::Pill, this);
             tile->setText(glyph);
             tile->setToolTip(tip);
             tile->setFixedSize(30, 30);
@@ -2220,6 +2323,10 @@ namespace {
             m_ghost = m_blocks[best].widget->grab();
             m_grab = event->pos() - frameOf(m_blocks[best]).topLeft();
             m_mouse = event->pos();
+            // The block's own place stays as a faint outline while its picture is carried.
+            auto *faint = new QGraphicsOpacityEffect(m_blocks[best].widget);
+            faint->setOpacity(.22);
+            m_blocks[best].widget->setGraphicsEffect(faint);
             setCursor(Qt::ClosedHandCursor);
             update();
         }
@@ -2231,15 +2338,18 @@ namespace {
                 return;
             }
             m_mouse = event->pos();
+            // As on the phone, the window rearranges while the block is carried, not only once it is let go.
+            if (const auto &drop = m_blocks[m_dragged].drop) drop(event->pos());
             update();
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
             if (m_dragged < 0) return;
-            const auto drop = m_blocks[m_dragged].drop;
+            const auto block = m_blocks[m_dragged];
             m_dragged = -1;
             m_ghost = {};
+            if (block.widget) block.widget->setGraphicsEffect(nullptr);
             setCursor(Qt::OpenHandCursor);
-            if (drop) drop(event->pos());
+            if (block.drop) block.drop(event->pos());
             rebuild();
             update();
         }
@@ -2273,11 +2383,11 @@ namespace {
     public:
         ArrangeTutorial(QWidget *parent, std::function<void()> closed) : QWidget(parent), m_closed(std::move(closed)) {
             setAttribute(Qt::WA_DeleteOnClose);
-            m_skip = new NewTile(NewTile::Chip, this);
+            m_skip = new NewTile(NewTile::Pill, this);
             m_skip->setText(QCoreApplication::translate("NewHome", "Skip"));
-            m_skip->setFixedSize(120, 38);
+            m_skip->setFixedSize(std::max(120, m_skip->sizeHint().width()), 38);
             connect(m_skip, &QAbstractButton::clicked, this, [this] { finish(); });
-            m_next = new NewTile(NewTile::Chip, this);
+            m_next = new NewTile(NewTile::Pill, this);
             m_next->setFixedSize(120, 38);
             connect(m_next, &QAbstractButton::clicked, this, [this] { if (m_step == 2) finish(); else { m_step++; m_clock.restart(); updateText(); } });
             auto *timer = new QTimer(this);
@@ -2439,6 +2549,8 @@ void NewHome::applyArrangement() {
     m_chipBox->layout()->setContentsMargins(0, 14, 0, 0);
     m_chipBox->show();
     m_orb->setFixedHeight(settings.new_layout_size == QLatin1String("compact") ? 148 : 190);
+    // The window's smallest size follows the arrangement.
+    if (m_attached) mw->applyTopBarMetrics();
 }
 
 void NewHome::setArranging(bool on) {
@@ -2453,8 +2565,10 @@ void NewHome::setArranging(bool on) {
     auto *overlay = new ArrangeOverlay(this, [this] { setArranging(false); }, [this] { new ArrangeTutorial(this, {}); });
     // The panel is the one block: dropped in the left, middle or right third of the window, it stands there and
     // the servers and tabs take the rest. The connect button only changes size.
+    // Called on every move of the drag: only a change of third saves and rearranges.
     overlay->addBlock(m_side, [=, &settings](QPoint at) {
-        set(settings.new_layout_panel, at.x() < width() / 3 ? QStringLiteral("left") : at.x() > width() * 2 / 3 ? QStringLiteral("right") : QStringLiteral("center"));
+        const QString place = at.x() < width() / 3 ? QStringLiteral("left") : at.x() > width() * 2 / 3 ? QStringLiteral("right") : QStringLiteral("center");
+        if (settings.new_layout_panel != place) set(settings.new_layout_panel, place);
     });
     overlay->rebuild = [=, &settings] {
         overlay->clearButtons();
@@ -2553,6 +2667,10 @@ void MainWindow::applyInterfaceStyle(bool animated) {
         rootStack->addWidget(classic);
         setCentralWidget(rootStack);
     }
+    // The hidden page must not hold the window to its own minimum: the new one goes down to a phone's width.
+    if (QWidget *classic = rootStack->widget(0)) {
+        classic->setSizePolicy(wantNew ? QSizePolicy::Ignored : QSizePolicy::Preferred, wantNew ? QSizePolicy::Ignored : QSizePolicy::Preferred);
+    }
     if (wantNew) {
         if (!newHome) {
             newHome = new NewHome(this);
@@ -2565,19 +2683,8 @@ void MainWindow::applyInterfaceStyle(bool animated) {
         if (newHome) newHome->detach();
         rootStack->setCurrentIndex(0);
     }
-    const bool frameless = wantNew;
-    // Changing the frame re-creates the window and would hide an open dialog with it: after the dialog closes.
-    QDialog *open = nullptr;
-    for (auto *dialog : findChildren<QDialog *>()) if (dialog->isVisible()) open = dialog;
-    if (open && bool(windowFlags() & Qt::FramelessWindowHint) != frameless) {
-        connect(open, &QDialog::finished, this, [this] { applyInterfaceStyle(false); }, Qt::SingleShotConnection);
-    } else if (bool(windowFlags() & Qt::FramelessWindowHint) != frameless) {
-        const bool shown = isVisible();
-        const bool maximized = isMaximized();
-        setWindowFlag(Qt::FramelessWindowHint, frameless);
-        if (shown) maximized ? showMaximized() : show();
-        if (frameless) NewStyle::roundCorners(this, false);
-    }
+    applyTopBarMetrics();
+    syncWindowFrame();
     if (cover) {
         cover->raise();
         auto *effect = new QGraphicsOpacityEffect(cover);
@@ -2590,4 +2697,25 @@ void MainWindow::applyInterfaceStyle(bool animated) {
         connect(fade, &QVariantAnimation::finished, cover, &QObject::deleteLater);
         QTimer::singleShot(260, cover, [fade] { fade->start(); });
     }
+}
+
+void MainWindow::syncWindowFrame() {
+    const bool frameless = NewStyle::active();
+    if (bool(windowFlags() & Qt::FramelessWindowHint) == frameless) return;
+    // Changing the frame re-creates the window and would hide an open dialog with it: after the dialog closes.
+    // Only a dialog window counts: a dialog class shown inside another one never finishes on its own.
+    for (auto *dialog : findChildren<QDialog *>()) {
+        if (!dialog->isWindow() || !dialog->isVisible()) continue;
+        connect(dialog, &QDialog::finished, this, [this] { syncWindowFrame(); }, Qt::SingleShotConnection);
+        return;
+    }
+    const bool shown = isVisible();
+    const bool maximized = isMaximized();
+    setWindowFlag(Qt::FramelessWindowHint, frameless);
+    if (shown) maximized ? showMaximized() : show();
+    if (frameless) NewStyle::roundCorners(this, false);
+}
+
+void MainWindow::arrangeWindow() {
+    if (newHome && newHome->attached()) newHome->arrange();
 }

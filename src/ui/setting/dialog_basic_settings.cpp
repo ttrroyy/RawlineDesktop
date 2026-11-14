@@ -417,7 +417,18 @@ DialogBasicSettings::DialogBasicSettings(QWidget *parent)
         ui->theme->setCurrentText(Configs::dataManager->settingsRepo->theme);
     }
     // The new interface has no seasonal decoration.
-    const auto syncDecoration = [this] { ui->seasonal_decoration->setEnabled(!NewStyle::isTheme(ui->theme->currentData().toString())); };
+    // The new interface's layout is changed next to its theme: the settings close and the window enters arranging.
+    auto *arrange = new QPushButton(QCoreApplication::translate("NewHome", "Arrange the window"), ui->groupBox);
+    ui->gridLayout_10->addWidget(arrange, 0, 2);
+    connect(arrange, &QPushButton::clicked, this, [this] {
+        accept();
+        if (!isVisible()) QTimer::singleShot(0, GetMainWindow(), [] { GetMainWindow()->arrangeWindow(); });
+    });
+    const auto syncDecoration = [this, arrange] {
+        const bool newTheme = NewStyle::isTheme(ui->theme->currentData().toString());
+        ui->seasonal_decoration->setEnabled(!newTheme);
+        arrange->setVisible(newTheme);
+    };
     syncDecoration();
     connect(ui->theme, &QComboBox::currentIndexChanged, this, [=,this](int index) {
         // A new-interface item carries its key; the rest are named by their text.

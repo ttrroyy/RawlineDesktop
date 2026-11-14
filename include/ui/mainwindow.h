@@ -161,6 +161,8 @@ public:
 
     void setDownloadReport(const DownloadProgressReport& report, bool show);
     void showNotice(const QString &message, int durationMs = 5000);
+    // The new interface's arranging mode, asked for from the theme settings.
+    void arrangeWindow();
 
     void showIpListsDialog(int selectListId = -1);
 
@@ -254,6 +256,8 @@ private:
     NewHome *newHome = nullptr;
     // Shows the classic or the new interface, as the theme asks.
     void applyInterfaceStyle(bool animated);
+    // The window's own frame for the classic look, none for the new one; waits while a dialog is open.
+    void syncWindowFrame();
     QElapsedTimer sinceWindowDeactivated;
     ProfilesTableModel *profilesTableModel = nullptr;
 

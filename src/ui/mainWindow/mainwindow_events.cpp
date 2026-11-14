@@ -84,6 +84,8 @@ void MainWindow::changeEvent(QEvent *event) {
         // Not stamped from WindowDeactivate in eventFilter(): that only reaches visible filtered children.
         if (isActiveWindow()) sinceWindowDeactivated.invalidate();
         else sinceWindowDeactivated.start();
+        // A frame change that waited for a dialog is made by the time the window is back in front.
+        if (isActiveWindow()) QTimer::singleShot(0, this, [this] { syncWindowFrame(); });
     }
     QMainWindow::changeEvent(event);
 }

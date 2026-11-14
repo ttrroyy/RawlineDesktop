@@ -70,6 +70,7 @@
 #endif
 
 #include <QClipboard>
+#include <QLabel>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QDesktopServices>
@@ -406,6 +407,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     auto* runtimeScroll = new QScrollArea(this);
     runtimeScroll->setFrameShape(QFrame::NoFrame);
     runtimeScroll->setWidgetResizable(true);
+    // The page wraps its lines to the width it gets instead of running past the card's round edge.
+    runtimeScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    for (auto *label : runtimeStatsWidget->findChildren<QLabel *>()) label->setWordWrap(true);
     runtimeScroll->setWidget(runtimeStatsWidget);
     ui->runtime_tab->layout()->addWidget(runtimeScroll);
 

@@ -71,7 +71,8 @@ namespace NewStyle {
 // A row, tile or tab of the new style: glass that lights under the pointer and presses like the mobile ones.
 class NewTile : public QAbstractButton {
 public:
-    enum Kind { Icon, Chip, Tab, Text };
+    // Pill: an opaque button with its text centred, for bars laid over the window.
+    enum Kind { Icon, Chip, Tab, Text, Pill };
     explicit NewTile(Kind kind, QWidget *parent = nullptr);
     void setIconName(const QString &name) { m_icon = name; update(); }
     // A second, muted line under the text, as the mobile subscription rows have.
@@ -161,10 +162,13 @@ public:
 
 protected:
     void mousePressEvent(QMouseEvent *) override;
+    void mouseMoveEvent(QMouseEvent *) override;
     void mouseDoubleClickEvent(QMouseEvent *) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    // The window's top edge runs through the bar: a press there resizes instead of moving.
+    bool onTopEdge(const QPoint &pos) const;
     QLabel *m_icon = nullptr;
     QLabel *m_title = nullptr;
     QWidget *m_window = nullptr;
@@ -212,6 +216,7 @@ public:
     bool attached() const { return m_attached; }
     void groupChanged();
     void refresh();
+    void arrange() { setArranging(true); }
 
 protected:
     void paintEvent(QPaintEvent *) override;

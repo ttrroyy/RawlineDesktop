@@ -1,6 +1,7 @@
 #include "include/ui/mainwindow.h"
 #include "NkrVersion.h"
 #include "include/ui/widget/SeasonalDecoration.hpp"
+#include "include/ui/widget/NewHome.hpp"
 
 #include <algorithm>
 
@@ -64,6 +65,11 @@ void MainWindow::applyTopBarMetrics() {
     const QMargins margins = centralLayout->contentsMargins();
     // Top bar only: the rows below show profile names, and an explicit minimum never shrinks back (#2081).
     const int topBarWidth = ui->horizontalLayout_2->minimumSize().width() + margins.left() + margins.right();
+    // The new interface has no top bar and goes down to a phone's width.
+    if (NewStyle::active() && newHome) {
+        setMinimumSize(newHome->minimumSizeHint().expandedTo(QSize(360, 480)));
+        return;
+    }
     setMinimumSize(qMax(designMinimumSize.width(), topBarWidth),
                    qMax(designMinimumSize.height(), minimumSizeHint().height()));
 }

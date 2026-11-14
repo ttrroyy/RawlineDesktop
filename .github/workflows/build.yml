@@ -83,6 +83,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - name: Check the engine/UI boundary
         run: cmake -DROOT=${{ github.workspace }} -P cmake/EngineBoundary.cmake
+      - name: Check interface fixes stay in place
+        run: python3 -m unittest discover -s script -p test_ui_regressions.py
   test-qwdtt:
     name: qWDTT and CSQTT tests (${{ matrix.os }})
     if: inputs.common_run_id == ''
