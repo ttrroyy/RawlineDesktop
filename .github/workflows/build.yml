@@ -507,8 +507,11 @@ jobs:
         if: ${{ !inputs.skip_ui_tests && matrix.dest_suffix == 'windows-amd64' }}
         shell: pwsh
         run: |
+          # From a copy: the portable build keeps its data next to the program, and the package must ship none.
+          $app = "$env:RUNNER_TEMP/ui-tour-app"
+          Copy-Item -Recurse "$env:DEST" $app
           $shots = "$env:RUNNER_TEMP/ui-tour"
-          $process = Start-Process -FilePath "$env:DEST/Rawline.exe" -ArgumentList "--ui-tour=$shots" -PassThru
+          $process = Start-Process -FilePath "$app/Rawline.exe" -ArgumentList "--ui-tour=$shots" -PassThru
           if (-not $process.WaitForExit(900000)) { $process.Kill(); throw "The interface tour did not finish" }
           $count = (Get-ChildItem $shots -Filter *.png).Count
           if ($count -lt 30) { throw "The interface tour saved only $count screens" }

@@ -278,9 +278,13 @@ namespace {
 
     // A menu's round corners show only on a window without a background or a shadow of its own.
     void clearMenuWindow(QMenu *menu) {
-        if (menu->testAttribute(Qt::WA_TranslucentBackground)) return;
+        if (menu->property("newCleared").toBool()) return;
+        menu->setProperty("newCleared", true);
         menu->setAttribute(Qt::WA_TranslucentBackground);
         menu->setWindowFlag(Qt::NoDropShadowWindowHint);
+        // A menu whose window exists already (the tray's, made at startup) keeps an opaque surface, which shows as
+        // black squares behind the round corners: dropped here, it is made again, see-through, on its next show.
+        if (QWindow *window = menu->windowHandle(); window && window->handle() && !menu->isVisible()) window->destroy();
     }
 
     // A menu gets round corners, which a stylesheet radius only shows on a window without a background of its own;
@@ -310,6 +314,10 @@ namespace {
             } else if (event->type() == QEvent::Show && widget->isWindow() &&
                        (widget->inherits("QComboBoxPrivateContainer") || widget->inherits("QTipLabel"))) {
                 NewStyle::roundCorners(widget, true);
+            } else if (event->type() == QEvent::Show && widget->isWindow() && !(widget->windowFlags() & Qt::FramelessWindowHint) &&
+                       (widget->windowType() == Qt::Dialog || widget->windowType() == Qt::Window)) {
+                // Every dialog's frame follows the theme, not only the ones that set it themselves.
+                NewStyle::themeFrame(widget);
             } else if (auto *view = qobject_cast<QAbstractItemView *>(widget); view && event->type() == QEvent::Show && widget->isWindow()) {
                 // A completer's list: the sheet makes views see-through, which a window of its own cannot be.
                 const auto rgba = [](const QColor &c) { return QStringLiteral("rgba(%1,%2,%3,%4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(c.alpha()); };
@@ -460,6 +468,29 @@ void NewStyle::roundCorners(QWidget *window, bool compact) {
 #endif
 }
 
+void NewStyle::themeFrame(QWidget *window) {
+#ifdef Q_OS_WIN
+    using SetAttribute = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+    static const auto set = [] {
+        const HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+        return dwm ? reinterpret_cast<SetAttribute>(GetProcAddress(dwm, "DwmSetWindowAttribute")) : nullptr;
+    }();
+    if (!set || !window) return;
+    const HWND hwnd = reinterpret_cast<HWND>(window->winId());
+    const BOOL dark = !light();
+    set(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark);
+    // Windows 11 paints the caption in the theme's own ground and ink; older systems ignore these.
+    const auto ref = [](const QColor &c) { return COLORREF(RGB(c.red(), c.green(), c.blue())); };
+    const COLORREF caption = ref(background()), ink = ref(text()), border = ref(blend(background(), muted(), .35));
+    set(hwnd, 35 /* DWMWA_CAPTION_COLOR */, &caption, sizeof caption);
+    set(hwnd, 36 /* DWMWA_TEXT_COLOR */, &ink, sizeof ink);
+    set(hwnd, 34 /* DWMWA_BORDER_COLOR */, &border, sizeof border);
+    roundCorners(window, false);
+#else
+    Q_UNUSED(window)
+#endif
+}
+
 bool NewStyle::isTheme(const QString &theme) {
     return theme == QLatin1String(OledTheme) || theme == QLatin1String(WhiteTheme) || theme == QLatin1String(PastelTheme);
 }
@@ -470,7 +501,10 @@ void NewStyle::setTheme(const QString &theme) {
     if (isTheme(g_theme) && !isTheme(theme)) {
         // Back in the classic look: menus get their own background again, and every control its own cursor.
         for (auto *widget : QApplication::allWidgets()) {
-            if (auto *menu = qobject_cast<QMenu *>(widget)) menu->setAttribute(Qt::WA_TranslucentBackground, false);
+            if (auto *menu = qobject_cast<QMenu *>(widget)) {
+                menu->setAttribute(Qt::WA_TranslucentBackground, false);
+                menu->setProperty("newCleared", QVariant());
+            }
             if (widget->property("newHand").toBool()) { widget->unsetCursor(); widget->setProperty("newHand", QVariant()); }
             if (widget->property("newPopup").toBool()) { widget->setStyleSheet(QString()); widget->setProperty("newPopup", QVariant()); }
         }
@@ -815,6 +849,10 @@ QSize NewTile::sizeHint() const {
     case Pill: return {QFontMetrics(NewStyle::font(m_textSize, QFont::Medium)).horizontalAdvance(text()) + 32, 40};
     }
     return {48, 48};
+}
+
+QSize NewTile::minimumSizeHint() const {
+    return m_kind == Tab || m_kind == Text ? QSize(40, sizeHint().height()) : sizeHint();
 }
 
 void NewTile::animatePress(qreal to, int duration) {
@@ -2118,8 +2156,9 @@ void NewHome::showGroupPicker() {
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setFrameShape(QFrame::NoFrame);
+    // No WA_TranslucentBackground here: on a child of a see-through window its clear fill cuts a hole down to the
+    // desktop, which left the list area of the sheet unfrosted. Not filling at all is enough.
     auto *list = new QWidget;
-    list->setAttribute(Qt::WA_TranslucentBackground);
     scroll->viewport()->setAutoFillBackground(false);
     auto *rows = new QVBoxLayout(list);
     rows->setContentsMargins(0, 0, 0, 0);
@@ -2143,6 +2182,8 @@ void NewHome::showGroupPicker() {
     }
     rows->addStretch();
     scroll->setWidget(list);
+    // setWidget turns filling on, which in a see-through window copies a clear fill straight through.
+    list->setAutoFillBackground(false);
     scroll->setFixedHeight(std::min(height, 420));
     layout->addWidget(scroll);
     auto *actions = new QHBoxLayout;
@@ -2434,10 +2475,10 @@ namespace {
             QPointF cursor;
             qreal press = 0;
             p.setPen(Qt::NoPen);
-            p.setBrush(NewStyle::light() ? QColor(250, 250, 252) : QColor(28, 28, 32));
+            p.setBrush(NewStyle::solid());
             p.drawRoundedRect(demo, 18, 18);
             const QColor surface = NewStyle::light() ? QColor(0, 0, 0, 18) : QColor(255, 255, 255, 22);
-            const QColor accent(80, 140, 255);
+            const QColor accent = NewStyle::pastel() ? NewStyle::accent() : QColor(80, 140, 255);
             QRectF panel(demo.left() + 16, demo.top() + 16, 150, demo.height() - 32);
             QRectF list(demo.left() + 182, demo.top() + 16, demo.width() - 198, demo.height() - 32);
             if (m_step == 2) {

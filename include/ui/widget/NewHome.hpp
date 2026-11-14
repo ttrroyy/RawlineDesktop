@@ -64,6 +64,8 @@ namespace NewStyle {
     QStyle *createStyle();
     // Windows 11's round corners for a window without a frame of its own.
     void roundCorners(QWidget *window, bool compact);
+    // A dialog's own frame in the theme: dark or light caption in its colours, round corners.
+    void themeFrame(QWidget *window);
     // A widget arriving: fades in while it rises into place, as the mobile screens do.
     void rise(QWidget *widget, int distance, int duration);
 }
@@ -82,6 +84,8 @@ public:
     void setTextSize(qreal px) { m_textSize = px; updateGeometry(); update(); }
     void setFlat(bool flat) { m_flat = flat; update(); }
     QSize sizeHint() const override;
+    // Tabs and text buttons may narrow to an elided title, so they never hold the window wide.
+    QSize minimumSizeHint() const override;
 
 protected:
     void paintEvent(QPaintEvent *) override;

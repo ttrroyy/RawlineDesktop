@@ -54,6 +54,20 @@ class InterfaceRegressions(unittest.TestCase):
         self.assertIn("p.setPen(QPen(withAlpha(mark, 230), 1.5));", text)
         self.assertIn("p.setBrush(blend(plate, mark, .22));", text)
 
+    def test_windows_and_menus_have_no_black_corners(self):
+        text = read("src/ui/widget/NewHome.cpp")
+        # The tray menu's window exists before the theme: it must be made again, see-through.
+        self.assertIn("window->destroy();", text.split("void clearMenuWindow", 1)[1].split("\n    }\n", 1)[0])
+        # A clear fill on a child of the sheet cuts a hole down to the desktop.
+        picker = text.split("void NewHome::showGroupPicker()", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("setAttribute(Qt::WA_TranslucentBackground)", picker)
+        self.assertIn("list->setAutoFillBackground(false);", picker)
+        # Every dialog's frame follows the theme.
+        self.assertIn("NewStyle::themeFrame(widget);", text)
+
+    def test_tabs_let_the_window_narrow(self):
+        self.assertIn("m_kind == Tab || m_kind == Text ? QSize(40,", read("src/ui/widget/NewHome.cpp"))
+
     def test_tab_close_button_is_drawn_by_the_new_style(self):
         self.assertIn("case PE_IndicatorTabClose:", read("src/ui/widget/NewHome.cpp"))
 

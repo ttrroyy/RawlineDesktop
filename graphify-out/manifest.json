@@ -2256,9 +2256,9 @@
     "semantic_hash": ""
   },
   "script/fetch_pinned_source.py": {
-    "mtime": 1793994774.4086354,
-    "seen": 1794032222.8777652,
-    "ast_hash": "a1caf9a07a546c7f30a265d382bb5930",
+    "mtime": 1794663421.3923266,
+    "seen": 1794668268.8108835,
+    "ast_hash": "438041381e89c983696fcf1a7cd403eb",
     "semantic_hash": ""
   },
   "script/format_cpp.sh": {
@@ -3522,9 +3522,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/build.yml": {
-    "mtime": 1794661722.4096916,
-    "seen": 1794661865.2039251,
-    "ast_hash": "b87a75945e3496eb0d24266d605333b3",
+    "mtime": 1794668149.6597674,
+    "seen": 1794668268.8114054,
+    "ast_hash": "39a2ad919dfc0ec265b27a1977be8828",
     "semantic_hash": ""
   },
   ".github/workflows/csqtt-transport.yml": {
@@ -9732,9 +9732,9 @@
     "semantic_hash": ""
   },
   "include/ui/widget/NewHome.hpp": {
-    "mtime": 1794661690.168795,
-    "seen": 1794661865.2028708,
-    "ast_hash": "6dc624bea769bd737bde8ac463ee1bbd",
+    "mtime": 1794668138.293474,
+    "seen": 1794668268.810358,
+    "ast_hash": "05626bafdfb75ba586cba0b34bb03303",
     "semantic_hash": ""
   },
   "include/ui/widget/NewIcons.h": {
@@ -9744,9 +9744,9 @@
     "semantic_hash": ""
   },
   "src/ui/widget/NewHome.cpp": {
-    "mtime": 1794661690.1705716,
-    "seen": 1794661865.2039251,
-    "ast_hash": "803429bb59682526bb22c281d0892245",
+    "mtime": 1794668157.48129,
+    "seen": 1794668268.8114054,
+    "ast_hash": "52a1571aea2676b44d9367a2c5bffd01",
     "semantic_hash": ""
   },
   "res/flags/SOURCE.txt": {
@@ -11964,9 +11964,9 @@
     "semantic_hash": ""
   },
   "script/test_ui_regressions.py": {
-    "mtime": 1794661307.062198,
-    "seen": 1794661419.8766057,
-    "ast_hash": "6991b1ec45a32381300adfaa47049ad9",
+    "mtime": 1794668168.1736152,
+    "seen": 1794668268.8108835,
+    "ast_hash": "804aab136ea574c55077439219ee1b9a",
     "semantic_hash": ""
   },
   "src/ui/widget/NewHomeTour.cpp": {
