@@ -32,6 +32,7 @@
 #include "include/sys/ServiceManager.hpp"
 #include "include/ui/app/GuiStartup.h"
 #include "include/ui/mainwindow.h"
+#include "include/ui/widget/NewHome.hpp"
 #include "include/stats/traffic/TrafficStatsManager.hpp"
 #include "include/api/RPC.h"
 
@@ -207,6 +208,10 @@ int main(int argc, char* argv[]) {
     auto *window = UI_InitMainWindow();
     Engine::host()->init(window, window);
     GuiStartup::WarnAboutHeadless();
+    // CI only: --ui-tour=<dir> photographs every screen of the new interface and quits.
+    for (const auto &arg : QApplication::arguments()) {
+        if (arg.startsWith(QStringLiteral("--ui-tour="))) NewHome::runTour(window, arg.mid(10));
+    }
 
     Configs::dataManager->RunDeferredMaintenance();
 

@@ -243,6 +243,7 @@ set(PROJECT_SOURCES
         include/ui/widget/NewHome.hpp
         include/ui/widget/NewIcons.h
         src/ui/widget/NewHome.cpp
+        src/ui/widget/NewHomeTour.cpp
         include/ui/widget/TrayIcon.hpp
         src/ui/widget/TrayIcon.cpp
         include/ui/widget/TrayPopupFrame.hpp
@@ -966,6 +967,7 @@ set_property(SOURCE "3rdparty/SQLiteCpp/src/sqlite3.c" PROPERTY SKIP_UNITY_BUILD
 set_property(SOURCE "3rdparty/monocypher/monocypher.c" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
 # Its file-local helpers (T, label, softCurve...) must not meet another file's in a unity batch.
 set_property(SOURCE "src/ui/widget/NewHome.cpp" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
+set_property(SOURCE "src/ui/widget/NewHomeTour.cpp" PROPERTY SKIP_UNITY_BUILD_INCLUSION ON)
 
 # Verified to link. OMIT_VIRTUALTABLE/VIEW/ANALYZE/CTE/WINDOWFUNC/DECLTYPE all break this build.
 target_compile_definitions(Rawline PRIVATE

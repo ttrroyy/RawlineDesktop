@@ -3048,9 +3048,9 @@
     "semantic_hash": ""
   },
   "src/main.cpp": {
-    "mtime": 1794425236.2666337,
-    "seen": 1794455252.2332797,
-    "ast_hash": "04c17fb598d581871dbb1631b65d9a80",
+    "mtime": 1794661703.250523,
+    "seen": 1794661865.2033992,
+    "ast_hash": "eed9a01e8b1096d931cd6b131a2a3909",
     "semantic_hash": ""
   },
   "src/ui/group/GroupItem.cpp": {
@@ -3522,9 +3522,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/build.yml": {
-    "mtime": 1794661133.527973,
-    "seen": 1794661254.2148182,
-    "ast_hash": "2c1ca1b5752c4d79ff3185296c4fd6f0",
+    "mtime": 1794661722.4096916,
+    "seen": 1794661865.2039251,
+    "ast_hash": "b87a75945e3496eb0d24266d605333b3",
     "semantic_hash": ""
   },
   ".github/workflows/csqtt-transport.yml": {
@@ -3558,9 +3558,9 @@
     "semantic_hash": ""
   },
   "CMakeLists.txt": {
-    "mtime": 1794651040.9270203,
-    "seen": 1794651495.401706,
-    "ast_hash": "951d42ee3f859fdb8e1c1c3542e67d39",
+    "mtime": 1794661690.1710997,
+    "seen": 1794661865.2039251,
+    "ast_hash": "21446eaa37670f40c420286eb174e0ec",
     "semantic_hash": ""
   },
   "README.md": {
@@ -9732,9 +9732,9 @@
     "semantic_hash": ""
   },
   "include/ui/widget/NewHome.hpp": {
-    "mtime": 1794660875.031953,
-    "seen": 1794661254.2138186,
-    "ast_hash": "093bac57790554f5c0de7bb41be59a42",
+    "mtime": 1794661690.168795,
+    "seen": 1794661865.2028708,
+    "ast_hash": "6dc624bea769bd737bde8ac463ee1bbd",
     "semantic_hash": ""
   },
   "include/ui/widget/NewIcons.h": {
@@ -9744,9 +9744,9 @@
     "semantic_hash": ""
   },
   "src/ui/widget/NewHome.cpp": {
-    "mtime": 1794661297.1279888,
-    "seen": 1794661419.878225,
-    "ast_hash": "547e256e25a6c0d19d8f4d7ead56c705",
+    "mtime": 1794661690.1705716,
+    "seen": 1794661865.2039251,
+    "ast_hash": "803429bb59682526bb22c281d0892245",
     "semantic_hash": ""
   },
   "res/flags/SOURCE.txt": {
@@ -11967,6 +11967,12 @@
     "mtime": 1794661307.062198,
     "seen": 1794661419.8766057,
     "ast_hash": "6991b1ec45a32381300adfaa47049ad9",
+    "semantic_hash": ""
+  },
+  "src/ui/widget/NewHomeTour.cpp": {
+    "mtime": 1794661690.1693206,
+    "seen": 1794661865.2039251,
+    "ast_hash": "cf080fe9a50e2d6eaf4276597ff1dedb",
     "semantic_hash": ""
   }
 }

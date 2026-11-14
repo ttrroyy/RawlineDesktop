@@ -503,6 +503,22 @@ jobs:
         run: |
           $process = Start-Process -FilePath "$env:DEST/Rawline.exe" -ArgumentList '--self-test-core-startup' -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "Packaged core startup failed: $($process.ExitCode)" }
+      - name: Photograph the new interface
+        if: ${{ !inputs.skip_ui_tests && matrix.dest_suffix == 'windows-amd64' }}
+        shell: pwsh
+        run: |
+          $shots = "$env:RUNNER_TEMP/ui-tour"
+          $process = Start-Process -FilePath "$env:DEST/Rawline.exe" -ArgumentList "--ui-tour=$shots" -PassThru
+          if (-not $process.WaitForExit(900000)) { $process.Kill(); throw "The interface tour did not finish" }
+          $count = (Get-ChildItem $shots -Filter *.png).Count
+          if ($count -lt 30) { throw "The interface tour saved only $count screens" }
+      - name: Upload the interface tour
+        if: ${{ !inputs.skip_ui_tests && matrix.dest_suffix == 'windows-amd64' && always() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Rawline-ui-tour
+          path: ${{ runner.temp }}/ui-tour
+          if-no-files-found: ignore
       - name: Test packaged Linux core startup
         if: contains(matrix.platform, 'ubuntu') && matrix.qt_version == '6.2.0'
         env:

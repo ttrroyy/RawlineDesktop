@@ -2396,6 +2396,7 @@ namespace {
     public:
         ArrangeTutorial(QWidget *parent, std::function<void()> closed) : QWidget(parent), m_closed(std::move(closed)) {
             setAttribute(Qt::WA_DeleteOnClose);
+            setObjectName(QStringLiteral("arrangeTutorial"));
             m_skip = new NewTile(NewTile::Pill, this);
             m_skip->setText(QCoreApplication::translate("NewHome", "Skip"));
             m_skip->setFixedSize(std::max(120, m_skip->sizeHint().width()), 38);

@@ -217,6 +217,8 @@ public:
     void groupChanged();
     void refresh();
     void arrange() { setArranging(true); }
+    // --ui-tour: opens every screen in each theme and saves the screen, for CI.
+    static void runTour(MainWindow *mw, const QString &dir);
 
 protected:
     void paintEvent(QPaintEvent *) override;
